@@ -1,5 +1,6 @@
 import numpy as np
-import tqdm as tqdm
+# import tqdm as tqdm
+from tqdm import tqdm
 
 from obp.policy.policy_type import PolicyType
 from obp.simulator.simulator import BanditPolicy
