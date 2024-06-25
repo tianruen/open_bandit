@@ -269,3 +269,107 @@ class BernoulliTS(BaseContextFreePolicy):
             (n_rounds, 1, 1),
         )
         return action_dist
+
+@dataclass
+class UCB(BaseContextFreePolicy):
+    """Upper Confidence Bound Policy
+
+    Parameters
+    ----------
+    n_actions: int
+        Number of actions.
+
+    len_list: int, default=1
+        Length of a list of actions in a recommendation/ranking inferface, slate size.
+        When Open Bandit Dataset is used, 3 should be set.
+
+    batch_size: int, default=1
+        Number of samples used in a batch parameter update.
+
+    random_state: int, default=None
+        Controls the random seed in sampling actions.
+        
+    const: float, default= sqrt(1/2)
+        Exploration hyperparameter. Higher values of C encourage more exploration
+        
+    policy_name: str, default=f'UCB_{const}'
+        Name of bandit policy
+
+    """
+    const: float = np.sqrt(1/2)
+    
+    def __post_init__(self) -> None:
+        """Initialize Class."""
+        check_scalar(self.const, "const", float, min_val=0.0)
+        self.policy_name = f"UCB_{self.const}"
+        super().__post_init__()
+        
+    def select_action(self) -> np.ndarray:
+        """Select a list of actions.
+
+        Returns
+        ----------
+        selected_actions: array-like, shape (len_list, )
+            List of selected actions.
+
+        """
+        if self.action_counts.min() > 0:
+            predicted_rewards = self.reward_counts / self.action_counts
+            predicted_rewards += self.const * np.sqrt(np.log(self.action_counts.sum()) / self.action_counts)
+            return predicted_rewards.argsort()[::-1][: self.len_list]
+        else:
+            return self.random_.choice(
+                self.n_actions, size=self.len_list, replace=False
+            )
+        
+    def update_params(self, action: int, reward: float) -> None:
+        """Update policy parameters.
+
+        Parameters
+        ----------
+        action: int
+            Selected action by the policy.
+
+        reward: float
+            Observed reward for the chosen action and position.
+
+        """
+        self.n_trial += 1
+        self.action_counts_temp[action] += 1
+        self.reward_counts_temp[action] += reward
+        if self.n_trial % self.batch_size == 0:
+            self.action_counts = np.copy(self.action_counts_temp)
+            self.reward_counts = np.copy(self.reward_counts_temp)
+            
+    def compute_batch_action_dist(
+        self,
+        n_rounds: int = 1,
+        n_sim: int = 100000,
+    ) -> np.ndarray:
+        """Compute the distribution over actions by Monte Carlo simulation.
+
+        Parameters
+        ----------
+        n_rounds: int, default=1
+            Number of rounds in the distribution over actions.
+            (the size of the first axis of `action_dist`)
+
+        n_sim: int, default=100000
+            Number of simulations in the Monte Carlo simulation to compute the distribution over actions.
+
+        Returns
+        ----------
+        action_dist: array-like, shape (n_rounds, n_actions, len_list)
+            Probability estimates of each arm being the best one for each sample, action, and position.
+
+        """
+        action_count = np.zeros((self.n_actions, self.len_list))
+        for _ in np.arange(n_sim):
+            selected_actions = self.select_action()
+            for pos in np.arange(self.len_list):
+                action_count[selected_actions[pos], pos] += 1
+        action_dist = np.tile(
+            action_count / n_sim,
+            (n_rounds, 1, 1),
+        )
+        return action_dist
