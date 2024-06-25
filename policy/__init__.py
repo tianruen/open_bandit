@@ -5,6 +5,7 @@ from obp.policy.base import BaseOfflinePolicyLearner
 from obp.policy.contextfree import BernoulliTS
 from obp.policy.contextfree import EpsilonGreedy
 from obp.policy.contextfree import Random
+from obp.policy.contextfree import UCB
 from obp.policy.linear import LinEpsilonGreedy
 from obp.policy.linear import LinTS
 from obp.policy.linear import LinUCB
@@ -26,6 +27,7 @@ __all__ = [
     "EpsilonGreedy",
     "Random",
     "BernoulliTS",
+    "UCB",
     "LinEpsilonGreedy",
     "LinUCB",
     "LinTS",
